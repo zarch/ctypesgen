@@ -10,14 +10,23 @@ Reference is C99:
 
 __docformat__ = 'restructuredtext'
 
-import os, re, shlex, sys, tokenize, lex, yacc, traceback, subprocess
 import ctypes
-from lex import TOKEN
-import pplexer
+import os
+import re
+import shlex
+import subprocess
+import sys
+import tokenize
+import traceback
+
+from . import lex, pplexer, yacc
+from .lex import TOKEN
+
 
 # --------------------------------------------------------------------------
 # Lexers
 # --------------------------------------------------------------------------
+
 
 class PreprocessorLexer(lex.Lexer):
     def __init__(self):
@@ -61,6 +70,7 @@ class PreprocessorLexer(lex.Lexer):
 
         return result
 
+
 class TokenListLexer(object):
     def __init__(self, tokens):
         self.tokens = tokens
@@ -74,6 +84,7 @@ class TokenListLexer(object):
         else:
             return None
 
+
 def symbol_to_token(sym):
     if isinstance(sym, yacc.YaccSymbol):
         return sym.value
@@ -82,9 +93,10 @@ def symbol_to_token(sym):
     else:
         assert False, 'Not a symbol: %r' % sym
 
+
 def create_token(type, value, production=None):
     '''Create a token of type and value, at the position where 'production'
-    was reduced.  Don't specify production if the token is built-in'''
+    was reduced.  Don`t specify production if the token is built-in'''
     t = lex.LexToken()
     t.type = type
     t.value = value
@@ -101,15 +113,16 @@ def create_token(type, value, production=None):
 # Grammars
 # --------------------------------------------------------------------------
 
+
 class PreprocessorParser(object):
-    def __init__(self,options,cparser):
+    def __init__(self, options, cparser):
         self.defines = ["inline=", "__inline__=", "__extension__=",
-                        "__const=const", "__asm__(x)=",
+                        "_Bool=uint8_t", "__const=const", "__asm__(x)=",
                         "__asm(x)=", "CTYPESGEN=1"]
 
         # On OSX, explicitly add these defines to keep from getting syntax
         # errors in the OSX standard headers.
-        if sys.platform == 'darwin':
+        if hasattr(os, 'uname') and os.uname()[0] == 'Darwin':
             self.defines += ["__uint16_t=uint16_t",
                              "__uint32_t=uint32_t",
                              "__uint64_t=uint64_t"]
@@ -123,32 +136,36 @@ class PreprocessorParser(object):
                              module=pplexer)
 
         self.options = options
-        self.cparser = cparser # An instance of CParser
+        self.cparser = cparser  # An instance of CParser
 
     def parse(self, filename):
         """Parse a file and save its output"""
 
         cmd = self.options.cpp
-        cmd += " -U __GNUC__ -dD"
 
         # This fixes Issue #6 where OS X 10.6+ adds a C extension that breaks
         # the parser.  Blocks shouldn't be needed for ctypesgen support anyway.
         if sys.platform == 'darwin':
             cmd += " -U __BLOCKS__"
 
+        cmd += " -U __GNUC__"
+        cmd += " -dD"
         for path in self.options.include_search_paths:
             cmd += " -I%s" % path
         for define in self.defines:
             cmd += ' "-D%s"' % define
-        cmd += ' "' + filename + '"'
+        cmd += " " + filename.replace('\\', '/')
 
         self.cparser.handle_status(cmd)
 
+        if sys.platform == 'win32':
+            cmd = ['sh.exe', '-c', cmd]
+
         pp = subprocess.Popen(cmd,
-                              shell = True,
+                              shell=True,
                               universal_newlines=True,
-                              stdout = subprocess.PIPE,
-                              stderr = subprocess.PIPE)
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
         ppout, pperr = pp.communicate()
 
         for line in pperr.split("\n"):
@@ -158,10 +175,11 @@ class PreprocessorParser(object):
         # We separate lines that are #defines and lines that are source code
         # We put all the source lines first, then all the #define lines.
 
-        source_lines= []
+        source_lines = []
         define_lines = []
 
         for line in ppout.split("\n"):
+            line = line.rstrip('\r')
             line = line + "\n"
             if line.startswith("# "):
                 # Line number information has to go with both groups
@@ -184,8 +202,8 @@ class PreprocessorParser(object):
         text = "".join(source_lines + define_lines)
 
         if self.options.save_preprocessed_headers:
-            self.cparser.handle_status("Saving preprocessed headers to %s." % \
-                self.options.save_preprocessed_headers)
+            self.cparser.handle_status("Saving preprocessed headers to %s." %
+                                       self.options.save_preprocessed_headers)
             try:
                 f = file(self.options.save_preprocessed_headers, "w")
                 f.write(text)

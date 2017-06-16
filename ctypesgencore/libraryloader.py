@@ -32,10 +32,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ----------------------------------------------------------------------------
 
-import os.path, re, sys, glob
-import platform
 import ctypes
 import ctypes.util
+import glob
+import os.path
+import platform
+import re
+import sys
+
 
 def _environ_path(name):
     if name in os.environ:
@@ -43,11 +47,12 @@ def _environ_path(name):
     else:
         return []
 
+
 class LibraryLoader(object):
     def __init__(self):
-        self.other_dirs=[]
+        self.other_dirs = []
 
-    def load_library(self,libname):
+    def load_library(self, libname):
         """Given the name of a library, load it."""
         paths = self.getpaths(libname)
 
@@ -57,7 +62,7 @@ class LibraryLoader(object):
 
         raise ImportError("%s not found." % libname)
 
-    def load(self,path):
+    def load(self, path):
         """Given a path to a library, load it."""
         try:
             # Darwin requires dlopen to be called with mode RTLD_GLOBAL instead
@@ -68,10 +73,10 @@ class LibraryLoader(object):
                 return ctypes.CDLL(path, ctypes.RTLD_GLOBAL)
             else:
                 return ctypes.cdll.LoadLibrary(path)
-        except OSError,e:
+        except OSError as e:
             raise ImportError(e)
 
-    def getpaths(self,libname):
+    def getpaths(self, libname):
         """Return a list of paths where the library might be found."""
         if os.path.isabs(libname):
             yield libname
@@ -81,18 +86,20 @@ class LibraryLoader(object):
                 yield path
 
             path = ctypes.util.find_library(libname)
-            if path: yield path
+            if path:
+                yield path
 
     def getplatformpaths(self, libname):
         return []
 
 # Darwin (Mac OS X)
 
+
 class DarwinLibraryLoader(LibraryLoader):
     name_formats = ["lib%s.dylib", "lib%s.so", "lib%s.bundle", "%s.dylib",
-                "%s.so", "%s.bundle", "%s"]
+                    "%s.so", "%s.bundle", "%s"]
 
-    def getplatformpaths(self,libname):
+    def getplatformpaths(self, libname):
         if os.path.pathsep in libname:
             names = [libname]
         else:
@@ -100,9 +107,9 @@ class DarwinLibraryLoader(LibraryLoader):
 
         for dir in self.getdirs(libname):
             for name in names:
-                yield os.path.join(dir,name)
+                yield os.path.join(dir, name)
 
-    def getdirs(self,libname):
+    def getdirs(self, libname):
         '''Implements the dylib search as specified in Apple documentation:
 
         http://developer.apple.com/documentation/DeveloperTools/Conceptual/
@@ -142,6 +149,7 @@ class DarwinLibraryLoader(LibraryLoader):
 
 # Posix
 
+
 class PosixLibraryLoader(LibraryLoader):
     _ld_so_cache = None
 
@@ -155,18 +163,20 @@ class PosixLibraryLoader(LibraryLoader):
 
         directories = []
         for name in ("LD_LIBRARY_PATH",
-                     "SHLIB_PATH", # HPUX
-                     "LIBPATH", # OS/2, AIX
-                     "LIBRARY_PATH", # BE/OS
-                    ):
+                     "SHLIB_PATH",  # HPUX
+                     "LIBPATH",  # OS/2, AIX
+                     "LIBRARY_PATH",  # BE/OS
+                     ):
             if name in os.environ:
                 directories.extend(os.environ[name].split(os.pathsep))
         directories.extend(self.other_dirs)
         directories.append(".")
         directories.append(os.path.dirname(__file__))
 
-        try: directories.extend([dir.strip() for dir in open('/etc/ld.so.conf')])
-        except IOError: pass
+        try:
+            directories.extend([dir.strip() for dir in open('/etc/ld.so.conf')])
+        except IOError:
+            pass
 
         unix_lib_dirs_list = ['/lib', '/usr/lib', '/lib64', '/usr/lib64']
         if sys.platform.startswith('linux'):
@@ -212,12 +222,15 @@ class PosixLibraryLoader(LibraryLoader):
             self._create_ld_so_cache()
 
         result = self._ld_so_cache.get(libname)
-        if result: yield result
+        if result:
+            yield result
 
         path = ctypes.util.find_library(libname)
-        if path: yield os.path.join("/lib",path)
+        if path:
+            yield os.path.join("/lib", path)
 
 # Windows
+
 
 class _WindowsLibrary(object):
     def __init__(self, path):
@@ -225,11 +238,14 @@ class _WindowsLibrary(object):
         self.windll = ctypes.windll.LoadLibrary(path)
 
     def __getattr__(self, name):
-        try: return getattr(self.cdll,name)
+        try:
+            return getattr(self.cdll, name)
         except AttributeError:
-            try: return getattr(self.windll,name)
+            try:
+                return getattr(self.windll, name)
             except AttributeError:
                 raise
+
 
 class WindowsLibraryLoader(LibraryLoader):
     name_formats = ["%s.dll", "lib%s.dll", "%slib.dll"]
@@ -274,16 +290,19 @@ class WindowsLibraryLoader(LibraryLoader):
 # If your value of sys.platform does not appear in this dict, please contact
 # the Ctypesgen maintainers.
 
+
 loaderclass = {
-    "darwin":   DarwinLibraryLoader,
-    "cygwin":   WindowsLibraryLoader,
-    "win32":    WindowsLibraryLoader
+    "darwin": DarwinLibraryLoader,
+    "cygwin": WindowsLibraryLoader,
+    "win32": WindowsLibraryLoader
 }
 
 loader = loaderclass.get(sys.platform, PosixLibraryLoader)()
 
+
 def add_library_search_dirs(other_dirs):
     loader.other_dirs = other_dirs
+
 
 load_library = loader.load_library
 

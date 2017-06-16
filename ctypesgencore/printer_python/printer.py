@@ -1,26 +1,30 @@
 #!/usr/bin/env python
 
-import os, sys, time
-from ctypesgencore.descriptions import *
+import os
+import sys
+import test  # So we can find the path to local files in the printer package
+import time
+
+import ctypesgencore.libraryloader  # So we can get the path to it
 from ctypesgencore.ctypedescs import *
+from ctypesgencore.descriptions import *
 from ctypesgencore.messages import *
 
-import ctypesgencore.libraryloader # So we can get the path to it
-import test # So we can find the path to local files in the printer package
 
-def path_to_local_file(name,known_local_module = test):
-    basedir=os.path.dirname(known_local_module.__file__)
-    return os.path.join(basedir,name)
+def path_to_local_file(name, known_local_module=test):
+    basedir = os.path.dirname(known_local_module.__file__)
+    return os.path.join(basedir, name)
+
 
 class WrapperPrinter:
-    def __init__(self,outpath,options,data):
+    def __init__(self, outpath, options, data):
         status_message("Writing to %s." % (outpath or "stdout"))
 
-        self.file=outpath and file(outpath,"w") or sys.stdout
-        self.options=options
+        self.file = outpath and file(outpath, "w") or sys.stdout
+        self.options = options
 
         if self.options.strip_build_path and \
-          self.options.strip_build_path[-1] != os.path.sep:
+                self.options.strip_build_path[-1] != os.path.sep:
             self.options.strip_build_path += os.path.sep
 
         self.print_header()
@@ -32,8 +36,8 @@ class WrapperPrinter:
         self.print_loader()
         print >>self.file
 
-        self.print_group(self.options.libraries,"libraries",self.print_library)
-        self.print_group(self.options.modules,"modules",self.print_module)
+        self.print_group(self.options.libraries, "libraries", self.print_library)
+        self.print_group(self.options.modules, "modules", self.print_module)
 
         method_table = {
             'function': self.print_function,
@@ -46,54 +50,54 @@ class WrapperPrinter:
             'constant': self.print_constant
         }
 
-        for kind,desc in data.output_order:
+        for kind, desc in data.output_order:
             if desc.included:
                 method_table[kind](desc)
                 print >>self.file
 
-        self.print_group(self.options.inserted_files,"inserted files",
+        self.print_group(self.options.inserted_files, "inserted files",
                          self.insert_file)
 
-    def print_group(self,list,name,function):
+    def print_group(self, list, name, function):
         if list:
-            print >>self.file,"# Begin %s" % name
+            print >>self.file, "# Begin %s" % name
             print >>self.file
             for obj in list:
                 function(obj)
             print >>self.file
-            print >>self.file,"# %d %s" % (len(list),name)
-            print >>self.file,"# End %s" % name
+            print >>self.file, "# %d %s" % (len(list), name)
+            print >>self.file, "# End %s" % name
         else:
-            print >>self.file,"# No %s" % name
+            print >>self.file, "# No %s" % name
         print >>self.file
 
-    def srcinfo(self,src):
-        if src==None:
+    def srcinfo(self, src):
+        if src is None:
             print >>self.file
         else:
-            filename,lineno = src
-            if filename in ("<built-in>","<command line>"):
+            filename, lineno = src
+            if filename in ("<built-in>", "<command line>"):
                 print >>self.file, "# %s" % filename
             else:
                 if self.options.strip_build_path and \
-                  filename.startswith(self.options.strip_build_path):
+                        filename.startswith(self.options.strip_build_path):
                     filename = filename[len(self.options.strip_build_path):]
                 print >>self.file, "# %s: %s" % (filename, lineno)
 
     def template_subs(self):
-        template_subs={
+        template_subs = {
             'date': time.ctime(),
             'argv': ' '.join([x for x in sys.argv if not x.startswith("--strip-build-path")]),
             'name': os.path.basename(self.options.headers[0])
         }
 
-        for opt,value in self.options.__dict__.iteritems():
-            if type(value)==str:
-                template_subs[opt]=value
-            elif isinstance(value,(list,tuple)):
-                template_subs[opt]=(os.path.sep).join(value)
+        for opt, value in self.options.__dict__.iteritems():
+            if isinstance(value, str):
+                template_subs[opt] = value
+            elif isinstance(value, (list, tuple)):
+                template_subs[opt] = (os.path.sep).join(value)
             else:
-                template_subs[opt]=repr(value)
+                template_subs[opt] = repr(value)
 
         return template_subs
 
@@ -103,16 +107,16 @@ class WrapperPrinter:
         if self.options.header_template:
             path = self.options.header_template
             try:
-                template_file = file(path,"r")
+                template_file = file(path, "r")
             except IOError:
-                error_message("Cannot load header template from file \"%s\" " \
-                    " - using default template." % path, cls = 'missing-file')
+                error_message("Cannot load header template from file \"%s\" "
+                              " - using default template." % path, cls='missing-file')
 
         if not template_file:
             path = path_to_local_file("defaultheader.py")
-            template_file = file(path,"r")
+            template_file = file(path, "r")
 
-        template_subs=self.template_subs()
+        template_subs = self.template_subs()
         self.file.write(template_file.read() % template_subs)
 
         template_file.close()
@@ -122,7 +126,7 @@ class WrapperPrinter:
 
         print >>self.file, "# Begin preamble"
         print >>self.file
-        preamble_file=file(path,"r")
+        preamble_file = file(path, "r")
         self.file.write(preamble_file.read())
         preamble_file.close()
         print >>self.file
@@ -135,30 +139,30 @@ class WrapperPrinter:
         print >>self.file, "# Begin loader"
         print >>self.file
         path = path_to_local_file("libraryloader.py",
-                                      ctypesgencore.libraryloader)
-        loader_file=file(path,"r")
+                                  ctypesgencore.libraryloader)
+        loader_file = file(path, "r")
         self.file.write(loader_file.read())
         loader_file.close()
         print >>self.file
         print >>self.file, "# End loader"
         print >>self.file
         print >>self.file, "add_library_search_dirs([%s])" % \
-                ", ".join([repr(d) for d in self.options.runtime_libdirs])
+            ", ".join([repr(d) for d in self.options.runtime_libdirs])
 
-    def print_library(self,library):
-        print >>self.file, '_libs["%s"] = load_library("%s")'%(library,library)
+    def print_library(self, library):
+        print >>self.file, '_libs["%s"] = load_library("%s")' % (library, library)
 
-    def print_module(self,module):
+    def print_module(self, module):
         print >>self.file, 'from %s import *' % name
 
-    def print_constant(self,constant):
+    def print_constant(self, constant):
         print >>self.file, '%s = %s' % \
-            (constant.name,constant.value.py_string(False)),
+            (constant.name, constant.value.py_string(False)),
         self.srcinfo(constant.src)
 
-    def print_typedef(self,typedef):
+    def print_typedef(self, typedef):
         print >>self.file, '%s = %s' % \
-            (typedef.name,typedef.ctype.py_string()),
+            (typedef.name, typedef.ctype.py_string()),
         self.srcinfo(typedef.src)
 
     def print_struct(self, struct):
@@ -169,7 +173,8 @@ class WrapperPrinter:
         print >>self.file, '    pass'
 
     def print_struct_members(self, struct):
-        if struct.opaque: return
+        if struct.opaque:
+            return
 
         # handle unnamed fields.
         unnamed_fields = []
@@ -190,27 +195,27 @@ class WrapperPrinter:
                 struct.members[mi] = mem
 
         print >>self.file, '%s_%s.__slots__ = [' % (struct.variety, struct.tag)
-        for name,ctype in struct.members:
+        for name, ctype in struct.members:
             print >>self.file, "    '%s'," % name
         print >>self.file, ']'
 
         if len(unnamed_fields) > 0:
             print >>self.file, '%s_%s._anonymous_ = [' % (struct.variety,
-                    struct.tag)
+                                                          struct.tag)
             for name in unnamed_fields:
                 print >>self.file, "    '%s'," % name
             print >>self.file, ']'
 
         print >>self.file, '%s_%s._fields_ = [' % (struct.variety, struct.tag)
-        for name,ctype in struct.members:
-            if isinstance(ctype,CtypesBitfield):
+        for name, ctype in struct.members:
+            if isinstance(ctype, CtypesBitfield):
                 print >>self.file, "    ('%s', %s, %s)," % \
                     (name, ctype.py_string(), ctype.bitfield.py_string(False))
             else:
                 print >>self.file, "    ('%s', %s)," % (name, ctype.py_string())
         print >>self.file, ']'
 
-    def print_enum(self,enum):
+    def print_enum(self, enum):
         print >>self.file, 'enum_%s = c_int' % enum.tag,
         self.srcinfo(enum.src)
         # Values of enumerator are output as constants.
@@ -228,18 +233,19 @@ class WrapperPrinter:
         # Otherwise, check all the libraries.
         if function.source_library:
             print >>self.file, "if hasattr(_libs[%r], %r):" % \
-                (function.source_library,function.c_name())
+                (function.source_library, function.c_name())
             print >>self.file, "    %s = _libs[%r].%s" % \
-               (function.py_name(),function.source_library,function.c_name())
+                (function.py_name(), function.source_library, function.c_name())
         else:
             print >>self.file, "for _lib in _libs.itervalues():"
             print >>self.file, "    if not hasattr(_lib, %r):" % function.c_name()
             print >>self.file, "        continue"
             print >>self.file, "    %s = _lib.%s" % \
-               (function.py_name(),function.c_name())
+                (function.py_name(), function.c_name())
 
         # Argument types
-        print >>self.file, "    %s.argtypes = [%s]" % (function.py_name(),
+        print >>self.file, "    %s.argtypes = [%s]" % (
+            function.py_name(),
             ', '.join([a.py_string() for a in function.argtypes]))
 
         # Return value
@@ -249,23 +255,23 @@ class WrapperPrinter:
                 (function.py_name())
             print >>self.file, "    else:"
             print >>self.file, "        %s.restype = %s" % \
-                (function.py_name(),function.restype.py_string())
+                (function.py_name(), function.restype.py_string())
             print >>self.file, "        %s.errcheck = ReturnString" % \
                 (function.py_name())
         else:
             print >>self.file, "    %s.restype = %s" % \
-                (function.py_name(),function.restype.py_string())
+                (function.py_name(), function.restype.py_string())
 
         if not function.source_library:
             print >>self.file, "    break"
 
-    def print_variadic_function(self,function):
+    def print_variadic_function(self, function):
         self.srcinfo(function.src)
         if function.source_library:
             print >>self.file, "if hasattr(_libs[%r], %r):" % \
-                (function.source_library,function.c_name())
+                (function.source_library, function.c_name())
             print >>self.file, "    _func = _libs[%r].%s" % \
-                (function.source_library,function.c_name())
+                (function.source_library, function.c_name())
             print >>self.file, "    _restype = %s" % function.restype.py_string()
             print >>self.file, "    _argtypes = [%s]" % \
                 ', '.join([a.py_string() for a in function.argtypes])
@@ -281,7 +287,6 @@ class WrapperPrinter:
                 ', '.join([a.py_string() for a in function.argtypes])
             print >>self.file, "        %s = _variadic_function(_func,_restype,_argtypes)" % \
                 function.py_name()
-
 
     def print_variable(self, variable):
         self.srcinfo(variable.src)
@@ -317,27 +322,27 @@ class WrapperPrinter:
         # Hence the try statement.
         self.srcinfo(macro.src)
         print >>self.file, "try:"
-        print >>self.file, "    %s = %s" % (macro.name,macro.expr.py_string(True))
+        print >>self.file, "    %s = %s" % (macro.name, macro.expr.py_string(True))
         print >>self.file, "except:"
         print >>self.file, "    pass"
 
     def print_func_macro(self, macro):
         self.srcinfo(macro.src)
         print >>self.file, "def %s(%s):" % \
-            (macro.name,", ".join(macro.params))
+            (macro.name, ", ".join(macro.params))
         print >>self.file, "    return %s" % macro.expr.py_string(True)
 
-    def insert_file(self,filename):
+    def insert_file(self, filename):
         try:
-            inserted_file = file(filename,"r")
+            inserted_file = file(filename, "r")
         except IOError:
             error_message("Cannot open file \"%s\". Skipped it." % filename,
-                          cls = 'missing-file')
+                          cls='missing-file')
 
-        print >>self.file,"# Begin \"%s\"" % filename
+        print >>self.file, "# Begin \"%s\"" % filename
         print >>self.file
         self.file.write(inserted_file.read())
         print >>self.file
-        print >>self.file,"# End \"%s\"" % filename
+        print >>self.file, "# End \"%s\"" % filename
 
         inserted_file.close()

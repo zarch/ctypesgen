@@ -2,18 +2,25 @@
 # -*- coding: us-ascii -*-
 # vim:ts=4:sw=4:softtabstop=4:smarttab:expandtab
 
+
 def find_names_in_modules(modules):
     names = set()
     for module in modules:
         try:
             mod = __import__(module)
-        except:
+        except BaseException:
             pass
         else:
             names.union(dir(module))
     return names
 
-import optparse, sys
+
+import optparse
+import sys
+
+import ctypesgencore
+import ctypesgencore.messages as msgs
+
 
 def option_callback_W(option, opt, value, parser):
     # Options preceded by a "-Wl," are simply treated as though the "-Wl,"
@@ -28,6 +35,7 @@ def option_callback_W(option, opt, value, parser):
     # Push the linker option onto the list for further parsing.
     parser.rargs.insert(0, value)
 
+
 def option_callback_libdir(option, opt, value, parser):
     # There are two sets of linker search paths: those for use at compile time
     # and those for use at runtime. Search paths specified with -L, -R, or
@@ -35,94 +43,93 @@ def option_callback_libdir(option, opt, value, parser):
     parser.values.compile_libdirs.append(value)
     parser.values.runtime_libdirs.append(value)
 
-import ctypesgencore
-import ctypesgencore.messages as msgs
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     usage = 'usage: %prog [options] /path/to/header.h ...'
     op = optparse.OptionParser(usage=usage)
 
     # Parameters
     op.add_option('-o', '--output', dest='output', metavar='FILE',
-        help='write wrapper to FILE [default stdout]')
+                  help='write wrapper to FILE [default stdout]')
     op.add_option('-l', '--library', dest='libraries', action='append',
-        default=[], metavar='LIBRARY', help='link to LIBRARY')
+                  default=[], metavar='LIBRARY', help='link to LIBRARY')
     op.add_option('', '--include', dest='other_headers', action='append',
-        default=[], metavar='HEADER',
-        help='include system header HEADER (e.g. stdio.h or stdlib.h)')
+                  default=[], metavar='HEADER',
+                  help='include system header HEADER (e.g. stdio.h or stdlib.h)')
     op.add_option('-m', '--module', '--link-module', action='append',
-        dest='modules', metavar='MODULE', default=[],
-        help='use symbols from Python module MODULE')
+                  dest='modules', metavar='MODULE', default=[],
+                  help='use symbols from Python module MODULE')
     op.add_option('-I', '--includedir', dest='include_search_paths',
-        action='append', default=[], metavar='INCLUDEDIR',
-        help='add INCLUDEDIR as a directory to search for headers')
+                  action='append', default=[], metavar='INCLUDEDIR',
+                  help='add INCLUDEDIR as a directory to search for headers')
     op.add_option('-W', action="callback", callback=option_callback_W,
-        metavar="l,OPTION", type="str",
-        help="where OPTION is -L, -R, or --rpath")
+                  metavar="l,OPTION", type="str",
+                  help="where OPTION is -L, -R, or --rpath")
     op.add_option("-L", "-R", "--rpath", "--libdir", action="callback",
-        callback=option_callback_libdir, metavar="LIBDIR", type="str",
-        help="Add LIBDIR to the search path (both compile-time and run-time)")
+                  callback=option_callback_libdir, metavar="LIBDIR", type="str",
+                  help="Add LIBDIR to the search path (both compile-time and run-time)")
     op.add_option('', "--compile-libdir", action="append",
-        dest="compile_libdirs", metavar="LIBDIR", default=[],
-        help="Add LIBDIR to the compile-time library search path.")
+                  dest="compile_libdirs", metavar="LIBDIR", default=[],
+                  help="Add LIBDIR to the compile-time library search path.")
     op.add_option('', "--runtime-libdir", action="append",
-        dest="runtime_libdirs", metavar="LIBDIR", default=[],
-        help="Add LIBDIR to the run-time library search path.")
+                  dest="runtime_libdirs", metavar="LIBDIR", default=[],
+                  help="Add LIBDIR to the run-time library search path.")
 
     # Parser options
     op.add_option('', '--cpp', dest='cpp', default='gcc -E',
-        help='The command to invoke the c preprocessor, including any ' \
-             'necessary options (default: gcc -E)')
+                  help='The command to invoke the c preprocessor, including any '
+                  'necessary options (default: gcc -E)')
     op.add_option('', '--save-preprocessed-headers', metavar='FILENAME',
-        dest='save_preprocessed_headers', default=None,
-        help='Save the preprocessed headers to the specified FILENAME')
+                  dest='save_preprocessed_headers', default=None,
+                  help='Save the preprocessed headers to the specified FILENAME')
 
     # Processor options
     op.add_option('-a', '--all-headers', action='store_true',
-        dest='all_headers', default=False,
-        help='include symbols from all headers, including system headers')
+                  dest='all_headers', default=False,
+                  help='include symbols from all headers, including system headers')
     op.add_option('', '--builtin-symbols', action='store_true',
-        dest='builtin_symbols', default=False,
-        help='include symbols automatically generated by the preprocessor')
+                  dest='builtin_symbols', default=False,
+                  help='include symbols automatically generated by the preprocessor')
     op.add_option('', '--no-macros', action='store_false', dest='include_macros',
-        default=True, help="Don't output macros.")
+                  default=True, help="Don't output macros.")
     op.add_option('-i', '--include-symbols', dest='include_symbols',
-        default=None, help='regular expression for symbols to always include')
+                  default=None, help='regular expression for symbols to always include')
     op.add_option('-x', '--exclude-symbols', dest='exclude_symbols',
-        default=None, help='regular expression for symbols to exclude')
+                  default=None, help='regular expression for symbols to exclude')
     op.add_option('', '--no-stddef-types', action='store_true',
-        dest='no_stddef_types', default=False,
-        help='Do not support extra C types from stddef.h')
+                  dest='no_stddef_types', default=False,
+                  help='Do not support extra C types from stddef.h')
     op.add_option('', '--no-gnu-types', action='store_true',
-        dest='no_gnu_types', default=False,
-        help='Do not support extra GNU C types')
+                  dest='no_gnu_types', default=False,
+                  help='Do not support extra GNU C types')
     op.add_option('', '--no-python-types', action='store_true',
-        dest='no_python_types', default=False,
-        help='Do not support extra C types built in to Python')
+                  dest='no_python_types', default=False,
+                  help='Do not support extra C types built in to Python')
 
     # Printer options
     op.add_option('', '--header-template', dest='header_template', default=None,
-        metavar='TEMPLATE',
-        help='Use TEMPLATE as the header template in the output file.')
+                  metavar='TEMPLATE',
+                  help='Use TEMPLATE as the header template in the output file.')
     op.add_option('', '--strip-build-path', dest='strip_build_path',
-        default=None, metavar='BUILD_PATH',
-        help='Strip build path from header paths in the wrapper file.')
+                  default=None, metavar='BUILD_PATH',
+                  help='Strip build path from header paths in the wrapper file.')
     op.add_option('', '--insert-file', dest='inserted_files', default=[],
-        action='append', metavar='FILENAME',
-        help='Add the contents of FILENAME to the end of the wrapper file.')
+                  action='append', metavar='FILENAME',
+                  help='Add the contents of FILENAME to the end of the wrapper file.')
     op.add_option('', '--output-language', dest='output_language', metavar='LANGUAGE',
-        default='python',
-        help="Choose output language (`json' or `python' [default])")
+                  default='python',
+                  help="Choose output language (`json' or `python' [default])")
 
     # Error options
     op.add_option('', "--all-errors", action="store_true", default=False,
-        dest="show_all_errors", help="Display all warnings and errors even " \
-             "if they would not affect output.")
+                  dest="show_all_errors", help="Display all warnings and errors even "
+                  "if they would not affect output.")
     op.add_option('', "--show-long-errors", action="store_true", default=False,
-        dest="show_long_errors", help="Display long error messages " \
-            "instead of abbreviating error messages.")
+                  dest="show_long_errors", help="Display long error messages "
+                  "instead of abbreviating error messages.")
     op.add_option('', "--no-macro-warnings", action="store_false", default=True,
-        dest="show_macro_warnings", help="Do not print macro warnings.")
+                  dest="show_macro_warnings", help="Do not print macro warnings.")
 
     op.set_defaults(**ctypesgencore.options.default_values)
 
@@ -151,20 +158,20 @@ if __name__=="__main__":
         sys.exit(1)
 
     # Step 1: Parse
-    descriptions=ctypesgencore.parser.parse(options.headers,options)
+    descriptions = ctypesgencore.parser.parse(options.headers, options)
 
     # Step 2: Process
-    ctypesgencore.processor.process(descriptions,options)
+    ctypesgencore.processor.process(descriptions, options)
 
     # Step 3: Print
-    printer(options.output,options,descriptions)
+    printer(options.output, options, descriptions)
 
     msgs.status_message("Wrapping complete.")
 
     # Correct what may be a common mistake
     if descriptions.all == []:
         if not options.all_headers:
-            msgs.warning_message("There wasn't anything of use in the " \
-                "specified header file(s). Perhaps you meant to run with " \
-                "--all-headers to include objects from included sub-headers? ",
-                cls = 'usage')
+            msgs.warning_message("There wasn't anything of use in the "
+                                 "specified header file(s). Perhaps you meant to run with "
+                                 "--all-headers to include objects from included sub-headers? ",
+                                 cls='usage')

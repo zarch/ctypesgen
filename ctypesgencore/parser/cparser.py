@@ -6,8 +6,7 @@ Parse a C source file.
 To use, subclass CParser and override its handle_* methods.  Then instantiate
 the class with a string to parse.
 '''
-
-__docformat__ = 'restructuredtext'
+from __future__ import print_function
 
 import operator
 import os.path
@@ -16,14 +15,16 @@ import sys
 import time
 import warnings
 
-import preprocessor
-import yacc
-import cgrammar
-import cdeclarations
+from . import cdeclarations, cgrammar, preprocessor, yacc
+
+__docformat__ = 'restructuredtext'
+
+
 
 # --------------------------------------------------------------------------
 # Lexer
 # --------------------------------------------------------------------------
+
 
 class CLexer(object):
     def __init__(self, cparser):
@@ -57,8 +58,8 @@ class CLexer(object):
             elif t.type == 'IDENTIFIER' and t.value in cgrammar.keywords:
                 t.type = t.value.upper()
             elif t.type == 'IDENTIFIER' and t.value in self.type_names:
-                if (self.pos < 2 or self.tokens[self.pos-2].type not in
-                    ('ENUM', 'STRUCT', 'UNION')):
+                if (self.pos < 2 or self.tokens[self.pos - 2].type not in
+                        ('ENUM', 'STRUCT', 'UNION')):
                     t.type = 'TYPE_NAME'
 
             t.lexer = self
@@ -71,21 +72,23 @@ class CLexer(object):
 # Parser
 # --------------------------------------------------------------------------
 
+
 class CParser(object):
     '''Parse a C source file.
 
     Subclass and override the handle_* methods.  Call `parse` with a string
     to parse.
     '''
+
     def __init__(self, options):
-        self.preprocessor_parser = preprocessor.PreprocessorParser(options,self)
+        self.preprocessor_parser = preprocessor.PreprocessorParser(options, self)
         self.parser = yacc.Parser()
-        prototype = yacc.yacc(method        = 'LALR',
-                              debug         = False,
-                              module        = cgrammar,
-                              write_tables  = True,
-                              outputdir     = os.path.dirname(__file__),
-                              optimize      = True)
+        prototype = yacc.yacc(method='LALR',
+                              debug=False,
+                              module=cgrammar,
+                              write_tables=True,
+                              outputdir=os.path.dirname(__file__),
+                              optimize=True)
 
         # If yacc is reading tables from a file, then it won't find the error
         # function... need to set it manually
@@ -120,28 +123,28 @@ class CParser(object):
     # ----------------------------------------------------------------------
 
     def handle_error(self, message, filename, lineno):
-        '''A parse error occured.
+        '''A parse error occurred.
 
         The default implementation prints `lineno` and `message` to stderr.
         The parser will try to recover from errors by synchronising at the
         next semicolon.
         '''
-        print >> sys.stderr, '%s:%s %s' % (filename, lineno, message)
+        print('%s:%s %s' % (filename, lineno, message), file=sys.stderr)
 
     def handle_pp_error(self, message):
         '''The C preprocessor emitted an error.
 
-        The default implementatin prints the error to stderr. If processing
+        The default implementation prints the error to stderr. If processing
         can continue, it will.
         '''
-        print >> sys.stderr, 'Preprocessor:', message
+        print('Preprocessor:', message, file=sys.stderr)
 
     def handle_status(self, message):
         '''Progress information.
 
         The default implementationg prints message to stderr.
         '''
-        print >> sys.stderr, message
+        print(message, file=sys.stderr)
 
     def handle_define(self, name, params, value, filename, lineno):
         '''#define `name` `value`
@@ -190,19 +193,21 @@ class CParser(object):
         '''
         pass
 
+
 class DebugCParser(CParser):
     '''A convenience class that prints each invocation of a handle_* method to
     stdout.
     '''
 
     def handle_define(self, name, value, filename, lineno):
-        print '#define name=%r, value=%r' % (name, value)
+        print('#define name=%r, value=%r' % (name, value))
 
     def handle_define_constant(self, name, value, filename, lineno):
-        print '#define constant name=%r, value=%r' % (name, value)
+        print('#define constant name=%r, value=%r' % (name, value))
 
     def handle_declaration(self, declaration, filename, lineno):
-        print declaration
+        print(declaration)
+
 
 if __name__ == '__main__':
     DebugCParser().parse(sys.argv[1], debug=True)

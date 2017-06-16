@@ -32,16 +32,15 @@
 # POSSIBILITY OF SUCH DAMAGE.
 # ----------------------------------------------------------------------------
 
+import ctypes
+import ctypes.util
 import os
 import re
 import sys
 
-import ctypes
-import ctypes.util
-
-
 _debug_lib = False
 _debug_trace = False
+
 
 class _TraceFunction(object):
     def __init__(self, func):
@@ -59,6 +58,7 @@ class _TraceFunction(object):
     def __setattr__(self, name, value):
         setattr(self._func, name, value)
 
+
 class _TraceLibrary(object):
     def __init__(self, library):
         self._library = library
@@ -69,11 +69,12 @@ class _TraceLibrary(object):
         f = _TraceFunction(func)
         return f
 
+
 class _WindowsLibrary(object):
     def __init__(self, path):
         self._libraries = [
-          ctypes.cdll.LoadLibrary(path),
-          ctypes.windll.LoadLibrary(path)
+            ctypes.cdll.LoadLibrary(path),
+            ctypes.windll.LoadLibrary(path)
         ]
 
     def __getattr__(self, name):
@@ -85,7 +86,6 @@ class _WindowsLibrary(object):
             except AttributeError:
                 if i > 0:
                     raise
-
 
 
 class LibraryLoader(object):
@@ -104,7 +104,7 @@ class LibraryLoader(object):
         platform_names = kwargs.get(self.platform, [])
         if type(platform_names) in (str, unicode):
             platform_names = [platform_names]
-        elif type(platform_names) is tuple:
+        elif isinstance(platform_names, tuple):
             platform_names = list(platform_names)
 
         if self.platform == 'linux2':
@@ -130,11 +130,11 @@ class LibraryLoader(object):
                     if _debug_trace:
                         lib = _TraceLibrary(lib)
                     return lib
-                except OSError,e:
+                except OSError as e:
                     pass
         raise ImportError('Library "%s" not found.' % names[0])
 
-    find_library = lambda self, name: ctypes.util.find_library(name)
+    def find_library(self, name): return ctypes.util.find_library(name)
 
     platform = sys.platform
     if platform == 'cygwin':
@@ -142,6 +142,7 @@ class LibraryLoader(object):
 
     def load_framework(self, path):
         raise RuntimeError("Can't load framework on this platform.")
+
 
 class MachOLibraryLoader(LibraryLoader):
     def __init__(self):
@@ -186,22 +187,22 @@ class MachOLibraryLoader(LibraryLoader):
 
         if '/' in path:
             search_path.extend(
-                [os.path.join(p, libname) \
+                [os.path.join(p, libname)
                     for p in self.dyld_library_path])
             search_path.append(path)
             search_path.extend(
-                [os.path.join(p, libname) \
+                [os.path.join(p, libname)
                     for p in self.dyld_fallback_library_path])
         else:
             search_path.extend(
-                [os.path.join(p, libname) \
+                [os.path.join(p, libname)
                     for p in self.ld_library_path])
             search_path.extend(
-                [os.path.join(p, libname) \
+                [os.path.join(p, libname)
                     for p in self.dyld_library_path])
             search_path.append(path)
             search_path.extend(
-                [os.path.join(p, libname) \
+                [os.path.join(p, libname)
                     for p in self.dyld_fallback_library_path])
 
         for path in search_path:
@@ -244,6 +245,7 @@ class MachOLibraryLoader(LibraryLoader):
             return lib
 
         raise ImportError("Can't find framework %s." % path)
+
 
 class LinuxLibraryLoader(LibraryLoader):
     _ld_so_cache = None
@@ -301,6 +303,7 @@ class LinuxLibraryLoader(LibraryLoader):
             self._create_ld_so_cache()
 
         return self._ld_so_cache.get(path)
+
 
 if sys.platform == 'darwin':
     loader = MachOLibraryLoader()

@@ -12,6 +12,7 @@ __docformat__ = 'restructuredtext'
 # C Object Model
 # --------------------------------------------------------------------------
 
+
 class Declaration(object):
     def __init__(self):
         self.declarator = None
@@ -28,8 +29,10 @@ class Declaration(object):
         l = ['%s=%r' % (k, v) for k, v in d.items()]
         return 'Declaration(%s)' % ', '.join(l)
 
+
 class Declarator(object):
     pointer = None
+
     def __init__(self):
         self.identifier = None
         self.initializer = None
@@ -52,8 +55,10 @@ class Declarator(object):
             s += '(' + ', '.join([repr(p) for p in self.parameters]) + ')'
         return s
 
+
 class Pointer(Declarator):
     pointer = None
+
     def __init__(self):
         super(Pointer, self).__init__()
         self.qualifiers = []
@@ -65,6 +70,7 @@ class Pointer(Declarator):
         return 'POINTER%s(%r)' % (q, self.pointer) + \
             super(Pointer, self).__repr__()
 
+
 class Array(object):
     def __init__(self):
         self.size = None
@@ -72,13 +78,14 @@ class Array(object):
 
     def __repr__(self):
         if self.size:
-            a =  '[%r]' % self.size
+            a = '[%r]' % self.size
         else:
             a = '[]'
         if self.array:
             return repr(self.array) + a
         else:
             return a
+
 
 class Parameter(object):
     def __init__(self):
@@ -108,11 +115,14 @@ class Type(object):
 
 # These are used only internally.
 
+
 class StorageClassSpecifier(str):
     pass
 
+
 class TypeSpecifier(str):
     pass
+
 
 class StructTypeSpecifier(object):
     def __init__(self, is_union, tag, declarations):
@@ -131,11 +141,12 @@ class StructTypeSpecifier(object):
             s += ' {%s}' % '; '.join([repr(d) for d in self.declarations])
         return s
 
+
 class EnumSpecifier(object):
     def __init__(self, tag, enumerators, src=None):
         self.tag = tag
         self.enumerators = enumerators
-        self.src=src
+        self.src = src
 
     def __repr__(self):
         s = 'enum'
@@ -144,6 +155,7 @@ class EnumSpecifier(object):
         if self.enumerators:
             s += ' {%s}' % ', '.join([repr(e) for e in self.enumerators])
         return s
+
 
 class Enumerator(object):
     def __init__(self, name, expression):
@@ -156,19 +168,21 @@ class Enumerator(object):
             s += ' = %r' % self.expression
         return s
 
+
 class TypeQualifier(str):
     pass
+
 
 def apply_specifiers(specifiers, declaration):
     '''Apply specifiers to the declaration (declaration may be
     a Parameter instead).'''
     for s in specifiers:
-        if type(s) == StorageClassSpecifier:
+        if isinstance(s, StorageClassSpecifier):
             if declaration.storage:
                 # Multiple storage classes, technically an error... ignore it
                 pass
             declaration.storage = s
-        elif type(s) in (TypeSpecifier, StructTypeSpecifier, EnumSpecifier):
+        elif isinstance(s, (TypeSpecifier, StructTypeSpecifier, EnumSpecifier)):
             declaration.type.specifiers.append(s)
-        elif type(s) == TypeQualifier:
+        elif isinstance(s, TypeQualifier):
             declaration.type.qualifiers.append(s)

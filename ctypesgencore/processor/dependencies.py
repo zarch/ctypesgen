@@ -5,9 +5,10 @@ The dependencies module determines which descriptions depend on which other
 descriptions.
 """
 
-from ctypesgencore.descriptions import *
 from ctypesgencore.ctypedescs import *
+from ctypesgencore.descriptions import *
 from ctypesgencore.messages import *
+
 
 def find_dependencies(data, opts):
     """Visit each description in `data` and figure out which other descriptions
@@ -28,7 +29,7 @@ description."""
         if name.startswith("struct_") or name.startswith("enum_"):
             variety = name.split("_")[0]
             tag = "_".join(name.split("_")[1:])
-            struct_names[(variety,tag)] = None
+            struct_names[(variety, tag)] = None
         if name.startswith("enum_"):
             enum_names[name] = None
 
@@ -38,7 +39,8 @@ description."""
 
         if name in nametable:
             requirement = nametable[name]
-            if requirement: desc.add_requirements([requirement])
+            if requirement:
+                desc.add_requirements([requirement])
             return True
         else:
             return False
@@ -48,18 +50,27 @@ description."""
 dependencies for `desc`. Also collect error messages regarding `desc` and
 convert unlocateable descriptions into error messages."""
 
-        if kind == "constant": roots = [desc.value]
-        if kind == "struct": roots = []
-        if kind == "struct-body": roots = [desc.ctype]
-        if kind == "enum": roots = []
-        if kind == "typedef": roots = [desc.ctype]
-        if kind == "function": roots = desc.argtypes + [desc.restype]
-        if kind == "variable": roots = [desc.ctype]
+        if kind == "constant":
+            roots = [desc.value]
+        if kind == "struct":
+            roots = []
+        if kind == "struct-body":
+            roots = [desc.ctype]
+        if kind == "enum":
+            roots = []
+        if kind == "typedef":
+            roots = [desc.ctype]
+        if kind == "function":
+            roots = desc.argtypes + [desc.restype]
+        if kind == "variable":
+            roots = [desc.ctype]
         if kind == "macro":
-            if desc.expr: roots = [desc.expr]
-            else: roots = []
+            if desc.expr:
+                roots = [desc.expr]
+            else:
+                roots = []
 
-        cstructs,cenums,ctypedefs,errors,identifiers = [], [], [], [], []
+        cstructs, cenums, ctypedefs, errors, identifiers = [], [], [], [], []
 
         for root in roots:
             s, e, t, errs, i = visit_type_and_collect_info(root)
@@ -73,11 +84,11 @@ convert unlocateable descriptions into error messages."""
 
         for cstruct in cstructs:
             if kind == "struct" and desc.variety == cstruct.variety and \
-                desc.tag == cstruct.tag:
+                    desc.tag == cstruct.tag:
                 continue
             if not depend(desc, struct_names, (cstruct.variety, cstruct.tag)):
-                unresolvables.append("%s \"%s\"" % \
-                    (cstruct.variety, cstruct.tag))
+                unresolvables.append("%s \"%s\"" %
+                                     (cstruct.variety, cstruct.tag))
 
         for cenum in cenums:
             if kind == "enum" and desc.tag == cenum.tag:
@@ -91,18 +102,18 @@ convert unlocateable descriptions into error messages."""
 
         for ident in identifiers:
             if isinstance(desc, MacroDescription) and \
-                desc.params and ident in desc.params:
+                    desc.params and ident in desc.params:
                 continue
             if not depend(desc, ident_names, ident):
                 unresolvables.append("identifier \"%s\"" % ident)
 
         for u in unresolvables:
-            errors.append(("%s depends on an unknown %s." % \
-                          (desc.casual_name(), u), None))
+            errors.append(("%s depends on an unknown %s." %
+                           (desc.casual_name(), u), None))
 
         for err, cls in errors:
             err += " %s will not be output" % desc.casual_name()
-            desc.error(err, cls = cls)
+            desc.error(err, cls=cls)
 
     def add_to_lookup_table(desc, kind):
         """Add `desc` to the lookup table so that other descriptions that use
@@ -125,13 +136,13 @@ it can find it."""
     # no other type of description can look ahead like that.
 
     for kind, desc in data.output_order:
-        if kind!="macro":
+        if kind != "macro":
             find_dependencies_for(desc, kind)
             add_to_lookup_table(desc, kind)
 
     for kind, desc in data.output_order:
-        if kind=="macro":
+        if kind == "macro":
             add_to_lookup_table(desc, kind)
     for kind, desc in data.output_order:
-        if kind=="macro":
+        if kind == "macro":
             find_dependencies_for(desc, kind)
